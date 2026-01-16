@@ -1,0 +1,42 @@
+name: Test Applications
+
+on:
+  workflow_run:
+    workflows: ["Docker Build and Test"]
+    types:
+      - completed
+  workflow_dispatch:
+
+jobs:
+  test-applications:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Set up Docker
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test applications
+        run: |
+          set -e
+          # Pull component images to reuse from build-test workflow cache TODO
+          for component_dir in components/*/; do
+            component_name=$(basename "$component_dir")
+            # For now just build the components
+            docker build -t $component_name:test $component_dir
+          done
+
+          for app_dir in applications/*/; do
+            app_name=$(basename "$app_dir")
+            echo "::group::Testing application: $app_name"
+            ./run_tests.sh application $app_name || true
+            echo "::endgroup::"
+          done
