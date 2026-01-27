@@ -16,7 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version-file: .python-version
 
       - name: Sync dependencies
         run: uv sync
@@ -24,19 +26,32 @@ jobs:
       - name: Set up Docker
         uses: docker/setup-buildx-action@v3
 
-      - name: Test applications
+      - name: Build component images
         run: |
           set -e
           # Pull component images to reuse from build-test workflow cache TODO
           for component_dir in components/*/; do
             component_name=$(basename "$component_dir")
-            # For now just build the components
-            docker build -t $component_name:test $component_dir
-          done
-
-          for app_dir in applications/*/; do
-            app_name=$(basename "$app_dir")
-            echo "::group::Testing application: $app_name"
-            ./run_tests.sh application $app_name || true
+            echo "::group::Build $component_name"
+            docker build -t $component_name:latest $component_dir
             echo "::endgroup::"
           done
+
+      - name: Test applications
+        run: |
+          set -e
+          mkdir -p results
+          for app_dir in applications/*/; do
+            app_name=$(basename "$app_dir")
+            echo "::group::Test $app_name"
+            uv run pytest -v "tests/applications/test_${app_name}.py" \
+              --junitxml="results/application-${app_name}.xml" || true
+            echo "::endgroup::"
+          done
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: results/application-*.xml
+          check_name: Application Test Results
