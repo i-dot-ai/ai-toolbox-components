@@ -1,4 +1,3 @@
-import pdb
 import yaml
 import pytest
 import subprocess
