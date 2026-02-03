@@ -1,0 +1,39 @@
+name: Docker Build and Test
+
+on:
+   # Trigger on pull requests, pushes to main branch, and manual workflow dispatch
+    push:
+        branches:
+        - main
+    pull_request:
+    workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Sync dependencies
+        run: uv sync
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build component images
+        run: |
+          for component in components/*/; do
+            component_name=$(basename "$component")
+            docker build -t $component_name:test $component
+          done
+
+      - name: Test component containers
+        run: |
+          for component in components/*/; do
+            component_name=$(basename "$component")
+            ./run_tests.sh component $component_name
+          done

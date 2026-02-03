@@ -1,0 +1,12 @@
+[project]
+name = "kh-blueprints"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "docker>=7.1.0",
+    "pytest>=9.0.2",
+    "pyyaml>=6.0.3",
+    "requests>=2.32.5",
+]
