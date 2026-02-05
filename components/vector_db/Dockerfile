@@ -1,12 +1,12 @@
 # Use the official Qdrant image
 FROM qdrant/qdrant:latest
 
-# Install python to run the initialization script
+# Install python to run the initialisation script
 RUN apt-get update && apt-get install -y --no-install-recommends \
 python3 python3-pip python3-venv curl
 
-# Install Qdrant client
-RUN pip install qdrant-client --break-system-packages && \
+# Install Qdrant client and PyYAML
+RUN pip install qdrant-client pyyaml --break-system-packages && \
     rm -rf /var/lib/apt/lists/*
 
 # Expose default ports
@@ -14,17 +14,21 @@ RUN pip install qdrant-client --break-system-packages && \
 # 6334 - gRPC API
 EXPOSE 6333 6334
 
-# Copy your configuration and init scripts
-COPY entrypoint.sh /qdrant/entrypoint.sh
-COPY src/ /qdrant/defaults/
+WORKDIR /app
 
-WORKDIR /qdrant
+# Copy entrypoint
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
-# 5. Define the Healthcheck so the user's other services can "wait" for it
+# Copy customizable defaults (will be copied to /app/custom on startup if not present)
+COPY src/config/ /app/defaults/config/
+COPY src/plugins/ /app/defaults/plugins/
+
+# Create custom directory (single mount point for user customization)
+RUN mkdir -p /app/custom
+
+# Healthcheck so dependent services can wait for readiness
 HEALTHCHECK --interval=5s --timeout=3s --retries=5 \
   CMD curl -f http://localhost:6333/healthz || exit 1
 
-# Make the entrypoint executable
-RUN chmod +x /qdrant/entrypoint.sh
-
-ENTRYPOINT ["/qdrant/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]

@@ -1,10 +1,10 @@
-import yaml
-import pytest
+import shutil
 import subprocess
+from pathlib import Path
+
+import pytest
 
 from tests.test_utils import wait_for_service
-from tests.test_utils import verify_service_health
-from tests.test_utils import get_application_services
 
 
 @pytest.fixture(scope="module")
@@ -27,30 +27,71 @@ def component_endpoint(request):
 
 
 @pytest.fixture(scope="module")
-def application_endpoint(request):
-    """Fixture to manage a complete application for tests"""
-    app_name, service_port = request.param
+def application_endpoint(request, tmp_path_factory):
+    """Set up a clean application directory, start all services, and yield the app dir."""
+    app_name = request.param
+    app_dir = tmp_path_factory.mktemp("app")
 
-    services = get_application_services(app_name)
+    # Copy docker-compose.yaml to clean directory
+    src_compose = Path(f"applications/{app_name}/docker-compose.yaml")
+    shutil.copy(src_compose, app_dir / "docker-compose.yaml")
+    compose_file = app_dir / "docker-compose.yaml"
 
-    try:
-        # Start the entire application stack
-        subprocess.run(
-            ["docker", "compose", "--file", f"applications/{app_name}/docker-compose.yaml", "up", "-d", "--build"],
-            check=True
-        )
-    except subprocess.CalledProcessError as e:
-        pytest.fail(f"Failed to start application {app_name}: {e}")
-
-    # Wait for all services to be ready
-    for service in services:
-        wait_for_service(service)
-
-    # Determine main service URL
-    yield f"http://localhost:{service_port}"
-
-    # Cleanup entire application
-    subprocess.run(
-        ["docker", "compose", "--file", f"applications/{app_name}/docker-compose.yaml", "down"],
-        check=True
+    # Start all services
+    result = subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "up", "-d"],
+        cwd=app_dir,
+        capture_output=True,
+        text=True,
     )
+    if result.returncode != 0:
+        raise RuntimeError(f"Failed to start application: {result.stderr}")
+
+    yield app_dir
+
+    # Cleanup containers
+    subprocess.run(
+        ["docker", "compose", "-f", str(compose_file), "down", "-v"],
+        cwd=app_dir,
+        capture_output=True,
+    )
+
+
+@pytest.fixture
+def custom_parser_code():
+    """Custom parser code for testing parser discovery."""
+    return '''
+"""Custom test parser for integration testing."""
+import logging
+from .base import BaseParser, ParsedDocument
+
+logger = logging.getLogger(__name__)
+
+
+class TestParser(BaseParser):
+    """Simple parser for .test files."""
+
+    @property
+    def source_type(self) -> str:
+        return "test"
+
+    def fetch(self, source: str):
+        logger.info(f"TestParser fetching: {source}")
+        try:
+            with open(source) as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"TestParser failed to read {source}: {e}")
+            return None
+
+    def parse(self, content: str, source: str) -> ParsedDocument:
+        logger.info(f"TestParser parsing: {source}")
+        return ParsedDocument(
+            source=source,
+            title="Test Document",
+            content=content,
+            metadata={"parser": "test"},
+            timestamp=self._current_timestamp(),
+            source_type=self.source_type,
+        )
+'''

@@ -8,19 +8,8 @@ services:
       - "6333:6333"
       - "6334:6334"
 
-
-  # data-ingestor:
-  #   build:
-  #     context: ./components/data-ingestor
-  #     dockerfile: Dockerfile
-  #   image: data-ingestor:latest
-  #   environment:
-  #     - QDRANT_URL=qdrant:6333
-  #   depends_on:
-  #     database-wrapper:
-  #       condition: service_healthy
-  #   # Prevent the container from exiting
-  #   command: ["sleep", "infinity"]
-
-volumes:
-  qdrant_data:
+  data_ingestor:
+    build:
+      context: ./components/data_ingestor
+      dockerfile: Dockerfile
+    image: data_ingestor:latest

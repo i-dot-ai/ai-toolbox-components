@@ -16,7 +16,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install uv
-        run: pip install uv
+        uses: astral-sh/setup-uv@v4
+        with:
+          python-version-file: .python-version
 
       - name: Sync dependencies
         run: uv sync
@@ -26,14 +28,29 @@ jobs:
 
       - name: Build component images
         run: |
+          set -e
           for component in components/*/; do
             component_name=$(basename "$component")
-            docker build -t $component_name:test $component
+            echo "::group::Build $component_name"
+            docker build -t $component_name:latest $component
+            echo "::endgroup::"
           done
 
       - name: Test component containers
         run: |
+          set -e
+          mkdir -p results
           for component in components/*/; do
             component_name=$(basename "$component")
-            ./run_tests.sh component $component_name
+            echo "::group::Test $component_name"
+            uv run pytest -v "tests/components/test_${component_name}.py" \
+              --junitxml="results/component-${component_name}.xml" || true
+            echo "::endgroup::"
           done
+
+      - name: Publish test results
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        if: always()
+        with:
+          files: results/component-*.xml
+          check_name: Component Test Results

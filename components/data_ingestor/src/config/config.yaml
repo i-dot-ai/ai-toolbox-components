@@ -1,0 +1,26 @@
+# Data Ingestor Configuration
+#
+# Behavioral settings are configured here.
+# Connection settings (VECTOR_DB_HOST, VECTOR_DB_PORT) should be set via environment variables.
+
+# General settings
+request_delay: 1.0  # Delay between requests in seconds (to avoid rate limiting)
+
+# HTML parser settings
+html:
+  user_agent: "Mozilla/5.0 (compatible; DataIngestor/1.0)"
+  timeout: 30
+  exclude_elements:
+    - script
+    - style
+    - nav
+    - footer
+    - header
+    - aside
+
+# Qdrant embedder settings
+# Connection (host/port) should be set via VECTOR_DB_HOST and VECTOR_DB_PORT env vars
+# Model uses FastEmbed (ONNX Runtime) - see https://qdrant.github.io/fastembed/
+qdrant:
+  model_name: "sentence-transformers/all-MiniLM-L6-v2"
+  batch_size: 32

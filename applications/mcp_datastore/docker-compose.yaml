@@ -1,13 +1,12 @@
 services:
   vector_db:
     image: vector_db:latest
+    container_name: vector_db
     ports:
       - "6333:6333"  # HTTP API
       - "6334:6334"  # gRPC API
     volumes:
-      - ./data/qdrant/storage:/qdrant/storage
-      - ./data/qdrant/config:/qdrant/config
-      - ./data/qdrant/plugins:/qdrant/plugins
+      - ./code/vector_db:/app/custom
     deploy:
       resources:
         limits:
@@ -16,3 +15,25 @@ services:
         reservations:
           memory: 2G
           cpus: '1'
+
+  data_ingestor:
+    image: data_ingestor:latest
+    container_name: data_ingestor
+    volumes:
+      - ./code/data_ingestor:/app/custom
+      - ./input:/input
+    depends_on:
+      - vector_db
+    environment:
+      - VECTOR_DB_HOST=vector_db
+    # Example: ingest URLs by passing them as command arguments
+    # e.g.: ["https://example.com", "https://example.com/page2"]
+    # Or use a file: command: ["-f", "/app/sources.txt"]
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1'
+        reservations:
+          memory: 1G
+          cpus: '0.5'

@@ -22,10 +22,19 @@ if [ "$#" -gt 0 ]; then
                 TEST_PATH="tests/applications/test_${2}.py"
             fi
             ;;
+        unit|u)
+            if [ -z "$2" ]; then
+                TEST_PATH="tests/unit/"
+            else
+                COMPONENT=${2//-/_}
+                TEST_PATH="tests/unit/test_${COMPONENT}.py"
+            fi
+            ;;
         *)
-            echo "Usage: $0 [component|application] [name]"
+            echo "Usage: $0 [component|application|unit] [name]"
             echo "Examples:"
             echo "  $0                       # Run all tests"
+            echo "  $0 unit [name]           # Run unit tests (no Docker needed)"
             echo "  $0 component <name>      # Run component tests"
             echo "  $0 application [name]    # Run all application tests or specific application"
             exit 1

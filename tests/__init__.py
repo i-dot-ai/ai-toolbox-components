@@ -1,1 +1,1 @@
-# Package initialization file
+# Package initialisation file
